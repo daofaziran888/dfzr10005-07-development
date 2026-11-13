@@ -18,6 +18,22 @@
       </article>
     </div>
 
+    <section v-if="profileSummary" class="profile-summary">
+      <header class="summary-head">
+        <strong>分区热度画像摘要（同步自采样批次 {{ profileSummary.最新批次编号 }}）</strong>
+        <RouterLink class="link" to="/partition-profile">查看分区热度画像</RouterLink>
+      </header>
+      <div class="summary-grid">
+        <span>画像分区：<strong>{{ profileSummary.画像分区总数 }}</strong></span>
+        <span class="hot">持续高访问：<strong>{{ profileSummary.分类统计?.['持续高访问'] ?? 0 }}</strong></span>
+        <span class="spike">短时峰值：<strong>{{ profileSummary.分类统计?.['短时峰值'] ?? 0 }}</strong></span>
+        <span class="idle">长期无访问：<strong>{{ profileSummary.分类统计?.['长期无访问'] ?? 0 }}</strong></span>
+        <span>已收口批次：<strong>{{ profileSummary.已收口批次数 }}</strong></span>
+        <span>采样中批次：<strong>{{ profileSummary.采样中批次数 }}</strong></span>
+        <span>待处理分层建议：<strong>{{ profileSummary.待处理分层建议 }}</strong></span>
+      </div>
+    </section>
+
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
@@ -80,6 +96,7 @@ const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+const profileSummary = ref<Record<string, any> | null>(null)
 
 function resetFilters() {
   filters.value = {}
@@ -114,13 +131,19 @@ async function reload() {
   errorMessage.value = ''
   const query = new URLSearchParams(filters.value as Record<string, string>).toString()
   try {
-    const response = await request(`${ENDPOINT}?${query}`)
+    const [response, summaryResponse] = await Promise.all([
+      request(`${ENDPOINT}?${query}`),
+      request(`${ENDPOINT}/profile-summary`),
+    ])
     if (!response.ok) {
       throw new Error('成本分析报告列表读取失败')
     }
     const payload = await response.json()
     rows.value = payload.items ?? []
     total.value = payload.total ?? rows.value.length
+    if (summaryResponse.ok) {
+      profileSummary.value = await summaryResponse.json()
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '存储成本优化列表读取失败'
   }
@@ -128,3 +151,12 @@ async function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.profile-summary { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.summary-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+.summary-grid { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); }
+.summary-grid .hot { color: #b42318; }
+.summary-grid .spike { color: #b45309; }
+.summary-grid .idle { color: #475569; }
+</style>

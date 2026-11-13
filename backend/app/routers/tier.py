@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas import ActionResult, EntryPayload, PageResult
+from app.services.profile import profile_service
 from app.services.tier import TierService
 
 router = APIRouter(prefix="/api/tier", tags=["数据分层规划"])
@@ -14,6 +15,13 @@ service = TierService()
 
 LIST_FIELDS = ["分层编号", "分层名称", "层级别名", "数据粒度", "存储格式", "压缩策略", "访问模式", "分层状态"]
 STATUSES = ["草稿", "已定义", "生效中", "已废弃"]
+
+
+@router.get("/profile-suggestions")
+def profile_suggestions(status: str | None = Query(default=None, description="待处理、已提交分层定义、已被新批次取代")) -> dict[str, Any]:
+    """画像驱动的分层调整建议：分层定义页据此显示建议来源批次。"""
+    items = profile_service.list_suggestions(status=status)
+    return {"items": items, "total": len(items)}
 
 
 @router.get("", response_model=PageResult[dict])

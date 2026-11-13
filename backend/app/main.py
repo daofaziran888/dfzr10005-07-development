@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import ROUTERS
+from app.services.profile import profile_service
 from app.store import store
 
 app = FastAPI(title="数仓治理与运维平台", version="1.0.0")
@@ -21,6 +22,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def bootstrap_profiles() -> None:
+    """启动时按种子采样数据核算分区画像（幂等，重启不重复生成）。"""
+    profile_service.bootstrap()
+
 
 for module in ROUTERS:
     app.include_router(module.router)

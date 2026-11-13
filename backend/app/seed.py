@@ -3,6 +3,118 @@ from __future__ import annotations
 
 from typing import Any
 
+
+def _build_profile_seed() -> dict[str, list[dict[str, Any]]]:
+    """分区热度画像的原始采样数据（批次 + 采样点）。
+
+    衍生数据（批次快照、当前画像、分层建议）不在这里手工构造，而是由
+    ``PartitionProfileService.bootstrap`` 按对应规则版本核算，保证历史批次
+    与当前画像的口径都能复算、可追溯。
+    """
+    batches: list[dict[str, Any]] = [
+        {
+            "id": 1,
+            "批次编号": "PB-202606",
+            "采样窗口开始": "2026-06-01",
+            "采样窗口结束": "2026-06-30",
+            "规则版本": "v1",
+            "状态": "已收口",
+            "创建时间": "2026-06-01 00:00:00",
+            "收口时间": "2026-07-01 08:00:00",
+        },
+        {
+            "id": 2,
+            "批次编号": "PB-202607",
+            "采样窗口开始": "2026-07-01",
+            "采样窗口结束": "2026-07-31",
+            "规则版本": "v1",
+            "状态": "已收口",
+            "创建时间": "2026-07-01 00:00:00",
+            "收口时间": "2026-08-01 08:00:00",
+        },
+        {
+            "id": 3,
+            "批次编号": "PB-202608",
+            "采样窗口开始": "2026-08-01",
+            "采样窗口结束": "2026-08-31",
+            "规则版本": "v2",
+            "状态": "已收口",
+            "创建时间": "2026-08-01 00:00:00",
+            "收口时间": "2026-09-01 08:00:00",
+        },
+        {
+            "id": 4,
+            "批次编号": "PB-202609",
+            "采样窗口开始": "2026-09-01",
+            "采样窗口结束": "2026-09-30",
+            "规则版本": "v2",
+            "状态": "采样中",
+            "创建时间": "2026-09-01 00:00:00",
+            "收口时间": "",
+        },
+    ]
+
+    # 四个分区分别承载持续高访问 / 短时峰值 / 长期无访问 / 平稳波动四类画像
+    partitions = {
+        "dwd_order_detail": ["dt=2026-08-20", "dt=2026-08-21"],
+        "dws_user_summary": ["dt=2026-08-20", "dt=2026-08-21"],
+        "ods_log_archive": ["dt=2026-08-20", "dt=2026-08-21"],
+        "dim_region": ["dt=2026-08-20", "dt=2026-08-21"],
+    }
+    # (批次id, 表名, 来源, 两次采样的查询次数) —— v1/v2 热度走势见规则核算结果
+    plan: list[tuple[int, str, str, tuple[int, int]]] = [
+        (1, "dwd_order_detail", "在线查询", (80, 85)),
+        (1, "dwd_order_detail", "离线任务", (20, 20)),
+        (1, "dws_user_summary", "在线查询", (20, 18)),
+        (1, "dws_user_summary", "对外服务", (5, 5)),
+        (1, "ods_log_archive", "离线任务", (1, 0)),
+        (1, "dim_region", "在线查询", (20, 22)),
+        (2, "dwd_order_detail", "在线查询", (90, 95)),
+        (2, "dwd_order_detail", "离线任务", (30, 25)),
+        (2, "dws_user_summary", "在线查询", (22, 20)),
+        (2, "dws_user_summary", "对外服务", (6, 4)),
+        (2, "ods_log_archive", "离线任务", (0, 1)),
+        (2, "dim_region", "在线查询", (18, 24)),
+        (3, "dwd_order_detail", "在线查询", (110, 120)),
+        (3, "dwd_order_detail", "对外服务", (20, 25)),
+        (3, "dws_user_summary", "在线查询", (150, 130)),
+        (3, "dws_user_summary", "离线任务", (10, 8)),
+        (3, "ods_log_archive", "离线任务", (0, 0)),
+        (3, "dim_region", "在线查询", (24, 26)),
+        (3, "dim_region", "离线任务", (10, 8)),
+        (4, "dwd_order_detail", "在线查询", (60, 0)),
+        (4, "dws_user_summary", "在线查询", (30, 0)),
+    ]
+
+    observations: list[dict[str, Any]] = []
+    observation_id = 0
+    for batch_id, table_name, source, counts in plan:
+        batch = next(item for item in batches if item["id"] == batch_id)
+        partition_values = partitions[table_name]
+        for index, count in enumerate(counts):
+            observation_id += 1
+            observations.append(
+                {
+                    "id": observation_id,
+                    "采样批次id": batch_id,
+                    "批次编号": batch["批次编号"],
+                    "表名称": table_name,
+                    "分区名称": partition_values[index],
+                    "访问来源": source,
+                    "查询次数": count,
+                    "分区热度": "",  # 收口时按批次规则版本核算
+                    "采样时间": f"{batch['采样窗口开始'][:8]}{20 + index:02d} 09:00:00",
+                    "采样任务": f"TASK-{source}-{batch_id:02d}",
+                    "状态": "已接受",
+                }
+            )
+
+    return {
+        "profile_batch": batches,
+        "profile_observation": observations,
+    }
+
+
 SEED_ROWS: dict[str, list[dict[str, Any]]] = {
     "lifecycle": [{'id': 1,
   'status': '草稿',
@@ -579,5 +691,6 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '索引命中': '查询性能分析样例3',
   '资源消耗': '查询性能分析样例3',
   '优化建议': '查询性能分析样例3',
-  '分析时间': '2026-09-03'}]
+  '分析时间': '2026-09-03'}],
+    **_build_profile_seed(),
 }

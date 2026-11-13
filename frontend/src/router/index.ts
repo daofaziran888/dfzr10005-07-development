@@ -4,6 +4,7 @@ import Overview from '@/views/Overview.vue'
 const Lifecycle = () => import('@/views/lifecycle/index.vue')
 const Cost = () => import('@/views/cost/index.vue')
 const Heatmap = () => import('@/views/heatmap/index.vue')
+const Profile = () => import('@/views/profile/index.vue')
 const Dag = () => import('@/views/dag/index.vue')
 const Sla = () => import('@/views/sla/index.vue')
 const Resource = () => import('@/views/resource/index.vue')
@@ -25,6 +26,7 @@ const router = createRouter({
     { path: '/lifecycle', name: 'lifecycle', component: Lifecycle },
     { path: '/cost', name: 'cost', component: Cost },
     { path: '/heatmap', name: 'heatmap', component: Heatmap },
+    { path: '/partition-profile', name: 'partition-profile', component: Profile },
     { path: '/dag', name: 'dag', component: Dag },
     { path: '/sla', name: 'sla', component: Sla },
     { path: '/resource', name: 'resource', component: Resource },

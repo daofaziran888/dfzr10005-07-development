@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas import ActionResult, EntryPayload, PageResult
 from app.services.cost import CostService
+from app.services.profile import profile_service
 
 router = APIRouter(prefix="/api/cost", tags=["存储成本优化"])
 
@@ -14,6 +15,12 @@ service = CostService()
 
 LIST_FIELDS = ["报告编号", "分析范围", "存储总量", "冷数据占比", "优化建议", "预计节省", "执行状态", "生成时间"]
 STATUSES = ["草稿", "分析中", "已生成", "已执行"]
+
+
+@router.get("/profile-summary")
+def profile_summary() -> dict[str, Any]:
+    """成本分析报告清单同步展示的分区热度画像摘要。"""
+    return profile_service.profile_summary()
 
 
 @router.get("", response_model=PageResult[dict])
